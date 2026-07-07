@@ -645,8 +645,7 @@ def safe_float(value, default=np.nan):
         return default
 #END OF PART1
 
-#CHIARAMOD: def save_image_h5(filename, array, array_2 = None, data_diode = None):
-def save_image_h5(filename, array, array_2=None, data_diode=None, simstep_positions_override=None):
+def save_image_h5(filename, array, array_2 = None, data_diode = None):
     global temperature_A, temperature_B, LTS_position, pressure_list, SimStep_x, SimStep_y, SimStep_z, SimStep_th, exposure, sensor_A, sensor_B, threshold_energy, loop_number, pump_power_entry, ref_image, threshold_entry, quadro_frm_entry, shutter_status_2, lakeshore_df, LTS_position_df, quadro_nimages, quadro_frametime, quadro_incidentenergy
     global attocube_encoder_raw, attocube_encoder_deg, run_number, base_measurement_path, list_of_files_per_loop, images_path
     file_path = os.path.join(images_path, filename+'.h5')
@@ -691,19 +690,7 @@ def save_image_h5(filename, array, array_2=None, data_diode=None, simstep_positi
         dset.attrs['Time'], dset.attrs['Pressure'], dset.attrs['Temperature_A'], dset.attrs['Temperature_B'], dset.attrs['Sensor_A_Ohm'], dset.attrs['Sensor_B_Ohm'], dset.attrs['LTS_position'] = interpolate_PT()
     dset.attrs['Acquisition_mode'] = acquisition_mode
     dset.attrs['Time_for_humans'] = str(dtm.fromtimestamp(time.time()))
-    #CHIARAMOD: dset.attrs['Simstep_positions'] = [SimStep_x, SimStep_y, SimStep_z, SimStep_th]
-    if simstep_positions_override is None:
-        simstep_positions = np.array([
-            safe_float(SimStep_x),
-            safe_float(SimStep_y),
-            safe_float(SimStep_z),
-            safe_float(SimStep_th),
-    ], dtype=np.float64)
-    else:
-        simstep_positions = np.array(simstep_positions_override, dtype=np.float64)
-
-    dset.attrs['Simstep_positions'] = simstep_positions
-    
+    dset.attrs['Simstep_positions'] = [SimStep_x, SimStep_y, SimStep_z, SimStep_th]
     dset.attrs['Exposure_time_ms'] = exposure
     dset.attrs['Frame_time'] = quadro_frametime
     #dset.attrs['threshold_energy'] = get_detector_parameter('threshold_energy')
@@ -1011,36 +998,7 @@ SimStep_y = 0
 SimStep_z = 0
 SimStep_th = 0
 
-def current_SimStep_positions_array():
-    return np.array([
-        safe_float(SimStep_x),
-        safe_float(SimStep_y),
-        safe_float(SimStep_z),
-        safe_float(SimStep_th),
-    ], dtype=np.float64)
 
-
-def set_SimStep_axis_value(axis, value):
-    global SimStep_x, SimStep_y, SimStep_z, SimStep_th
-
-    axis = int(axis)
-    value = float(value)
-
-    if axis == 1:
-        SimStep_x = value
-        pos_x_lbl.setText(str(int(value)))
-    elif axis == 2:
-        SimStep_y = value
-        pos_y_lbl.setText(str(int(value)))
-    elif axis == 3:
-        SimStep_z = value
-        pos_z_lbl.setText(str(int(value)))
-    elif axis == 4:
-        SimStep_th = value
-        pos_th_lbl.setText(str(int(value)))
-
-#CHIARAMOD: NEW UPDATE SIMSTEP POS
-"""
 def update_SimStep_pos(axis):
     global SimStep_updatestatus, Simstep_updating, SimStep_x, SimStep_y, SimStep_z, SimStep_th
     if Simstep_updating:
@@ -1127,79 +1085,7 @@ def update_SimStep_pos(axis):
                     SimStep_updatestatus = 1
                     timer_th.start(500)
 
-"""
-def update_SimStep_pos(axis):
-    global SimStep_updatestatus, Simstep_updating
-    global SimStep_x, SimStep_y, SimStep_z, SimStep_th
 
-    if not Simstep_updating:
-        return
-
-    axis = int(axis)
-
-    labels = {
-        1: pos_x_lbl,
-        2: pos_y_lbl,
-        3: pos_z_lbl,
-        4: pos_th_lbl,
-    }
-
-    commands = {
-        1: b'1oc\r',
-        2: b'2oc\r',
-        3: b'3oc\r',
-        4: b'4oc\r',
-    }
-
-    if axis not in labels:
-        print("Invalid SimStep axis:", axis)
-        return
-
-    starting_pos = labels[axis].text()
-
-    ser_simstep.write(commands[axis])
-    time.sleep(0.05)
-    raw_reply = ser_simstep.read(100)
-
-    try:
-        output = int(raw_reply[7:16])
-    except Exception:
-        print(f"Could not read SimStep axis {axis}. Raw reply: {raw_reply!r}. Keeping previous value.")
-        return
-
-    labels[axis].setText(str(output))
-
-    if axis == 1:
-        SimStep_x = output
-    elif axis == 2:
-        SimStep_y = output
-    elif axis == 3:
-        SimStep_z = output
-    elif axis == 4:
-        SimStep_th = output
-
-    if SimStep_updatestatus:
-        if str(starting_pos) == str(output):
-            SimStep_updatestatus = 0
-            if axis == 1:
-                timer_x.stop()
-            elif axis == 2:
-                timer_y.stop()
-            elif axis == 3:
-                timer_z.stop()
-            elif axis == 4:
-                timer_th.stop()
-        else:
-            SimStep_updatestatus = 1
-            if axis == 1:
-                timer_x.start(500)
-            elif axis == 2:
-                timer_y.start(500)
-            elif axis == 3:
-                timer_z.start(500)
-            elif axis == 4:
-                timer_th.start(500)
-                
 timer_x = QtCore.QTimer()
 timer_x.timeout.connect(partial(update_SimStep_pos, 1))
 timer_x.start(500)
@@ -1876,7 +1762,7 @@ def update_scan_lbl(i):
 
 
 def rock_acquire_image(i):
-    global img_arr, save_files, img_arr_old, images_path, scan_axis
+    global img_arr, save_files, img_arr_old, images_path
     print('THE PATH FOR THE IMAGES: ',  images_path)
     #filename = str(quadro_namepattern_entry.text())
     filenumber = int(quadro_namenumber_entry.text())
@@ -1909,22 +1795,8 @@ def rock_acquire_image(i):
     vec = np.argwhere(img_arr > 4e9)
     img_arr[vec[:, 0], vec[:, 1]] = 0
     img_arr = np.flipud(np.rot90(img_arr))
-    
     # new_filename = filename+"_"+format(i, "04")+"_"+timestamp+".tiff"
-    simstep_positions_to_save = current_SimStep_positions_array()
-
-    # In the rocking / XYZT scan, i is the commanded position
-    # of the scanned SimStep axis.
-    simstep_positions_to_save[int(scan_axis) - 1] = float(i)
-
-    # Also update the global variable and GUI label for consistency.
-    set_SimStep_axis_value(scan_axis, i)
-
-    save_image_h5(
-        filename + "_" + format(i, "04") + "_" + timestamp,
-        img_arr,
-        simstep_positions_override=simstep_positions_to_save,
-    )
+    save_image_h5(filename+"_"+format(i, "04")+"_"+timestamp, img_arr)
 
 
 scanning_thread = Scan_Thread()

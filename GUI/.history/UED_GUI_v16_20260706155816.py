@@ -1909,9 +1909,8 @@ def rock_acquire_image(i):
     vec = np.argwhere(img_arr > 4e9)
     img_arr[vec[:, 0], vec[:, 1]] = 0
     img_arr = np.flipud(np.rot90(img_arr))
-    
     # new_filename = filename+"_"+format(i, "04")+"_"+timestamp+".tiff"
-    simstep_positions_to_save = current_SimStep_positions_array()
+        simstep_positions_to_save = current_SimStep_positions_array()
 
     # In the rocking / XYZT scan, i is the commanded position
     # of the scanned SimStep axis.
